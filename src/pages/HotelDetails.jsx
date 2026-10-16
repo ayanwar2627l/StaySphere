@@ -1,9 +1,9 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Star, Check } from "lucide-react";
 import Navbar from "../components/Navbar";
-import hotels from "../data/hotels";
+import api from "../api";
 
 const roomTypes = [
   { name: "Standard Room", extra: 0 },
@@ -22,7 +22,9 @@ export default function HotelDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const hotel = hotels.find((item) => item.id === Number(id));
+  const [hotel, setHotel] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [room, setRoom] = useState("Standard Room");
   const [guests, setGuests] = useState(2);
@@ -30,14 +32,32 @@ export default function HotelDetails() {
   const [checkOut, setCheckOut] = useState("");
   const [selectedExtras, setSelectedExtras] = useState([]);
 
-  if (!hotel) {
+  useEffect(() => {
+    api
+      .get(`/hotels/${id}`)
+      .then((res) => setHotel(res.data))
+      .catch(() => setError("Could not load hotel details. Please try again."))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
     return (
-      <div className="not-found">
-        <h2>Hotel not found</h2>
-        <button onClick={() => navigate("/")}>
-          Back to hotels
-        </button>
-      </div>
+      <>
+        <Navbar />
+        <main className="not-found"><p>Loading hotel details...</p></main>
+      </>
+    );
+  }
+
+  if (error || !hotel) {
+    return (
+      <>
+        <Navbar />
+        <main className="not-found">
+          <h2>{error || "Hotel not found"}</h2>
+          <button onClick={() => navigate("/")}>Back to hotels</button>
+        </main>
+      </>
     );
   }
 
@@ -81,9 +101,9 @@ export default function HotelDetails() {
       return;
     }
 
-    navigate("/booking", {
+    navigate("/payment", {
       state: {
-        hotelId: hotel.id,
+        hotelId: hotel._id,
         hotelName: hotel.name,
         room,
         guests,
@@ -95,6 +115,7 @@ export default function HotelDetails() {
       },
     });
   }
+
 
   return (
     <>
@@ -272,8 +293,8 @@ export default function HotelDetails() {
             </button>
 
             <p className="price-note">
-              Demo pricing only. Availability and final charges
-              will be verified by the backend later.
+              Your booking will be saved to our system.
+              Final charges confirmed at check-in.
             </p>
           </aside>
         </div>

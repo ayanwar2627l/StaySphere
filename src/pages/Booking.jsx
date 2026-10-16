@@ -1,18 +1,18 @@
-
 import { useLocation, useNavigate } from "react-router-dom";
+import { CheckCircle, MapPin, CalendarDays, Users, BedDouble, Sparkles, ArrowLeft } from "lucide-react";
 import Navbar from "../components/Navbar";
 
 export default function Booking() {
-  const { state } = useLocation();
+  const { state: booking } = useLocation();
   const navigate = useNavigate();
 
-  if (!state) {
+  if (!booking) {
     return (
       <>
         <Navbar />
         <main className="not-found">
-          <h2>No booking selected</h2>
-          <button onClick={() => navigate("/")}>
+          <h2>No booking found</h2>
+          <button className="search-btn" onClick={() => navigate("/")}>
             Explore hotels
           </button>
         </main>
@@ -20,69 +20,122 @@ export default function Booking() {
     );
   }
 
+  const formattedDate = (dateStr) =>
+    new Date(dateStr).toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
   return (
     <>
       <Navbar />
 
       <main className="details-page">
-        <div className="price-card" style={{ maxWidth: 600, margin: "30px auto" }}>
-          <p className="eyebrow">BOOKING SUMMARY</p>
-          <h1>{state.hotelName}</h1>
+        <button className="back-btn" onClick={() => navigate("/")}>
+          <ArrowLeft size={18} />
+          Back to hotels
+        </button>
 
-          <div className="price-line">
-            <span>Room</span>
-            <strong>{state.room}</strong>
+        <div className="confirm-wrapper">
+
+          {/* Success badge */}
+          <div className="confirm-badge">
+            <CheckCircle size={48} strokeWidth={1.5} />
+            <div>
+              <h1>Booking Confirmed!</h1>
+              <p>Your reservation has been saved successfully.</p>
+            </div>
           </div>
 
-          <div className="price-line">
-            <span>Guests</span>
-            <strong>{state.guests}</strong>
+          {/* Booking ID */}
+          <div className="confirm-id">
+            <span>Booking ID</span>
+            <code>{booking._id}</code>
           </div>
 
-          <div className="price-line">
-            <span>Check-in</span>
-            <strong>{state.checkIn}</strong>
+          {/* Details grid */}
+          <div className="confirm-grid">
+
+            <div className="confirm-section">
+              <p className="eyebrow">STAY DETAILS</p>
+
+              <div className="confirm-row">
+                <BedDouble size={16} />
+                <span className="confirm-label">Hotel</span>
+                <strong>{booking.hotelName}</strong>
+              </div>
+
+              <div className="confirm-row">
+                <BedDouble size={16} />
+                <span className="confirm-label">Room type</span>
+                <strong>{booking.room}</strong>
+              </div>
+
+              <div className="confirm-row">
+                <Users size={16} />
+                <span className="confirm-label">Guests</span>
+                <strong>{booking.guests} {booking.guests === 1 ? "guest" : "guests"}</strong>
+              </div>
+            </div>
+
+            <div className="confirm-section">
+              <p className="eyebrow">DATES</p>
+
+              <div className="confirm-row">
+                <CalendarDays size={16} />
+                <span className="confirm-label">Check-in</span>
+                <strong>{formattedDate(booking.checkIn)}</strong>
+              </div>
+
+              <div className="confirm-row">
+                <CalendarDays size={16} />
+                <span className="confirm-label">Check-out</span>
+                <strong>{formattedDate(booking.checkOut)}</strong>
+              </div>
+
+              <div className="confirm-row">
+                <MapPin size={16} />
+                <span className="confirm-label">Duration</span>
+                <strong>{booking.nights} {booking.nights === 1 ? "night" : "nights"}</strong>
+              </div>
+            </div>
+
           </div>
 
-          <div className="price-line">
-            <span>Check-out</span>
-            <strong>{state.checkOut}</strong>
-          </div>
-
-          <div className="price-line">
-            <span>Nights</span>
-            <strong>{state.nights}</strong>
-          </div>
-
-          <h3>Selected extras</h3>
-          {state.extras.length ? (
-            <ul>
-              {state.extras.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          ) : (
-            <p>No additional extras selected.</p>
+          {/* Extras */}
+          {booking.extras?.length > 0 && (
+            <div className="confirm-section">
+              <p className="eyebrow">EXTRAS INCLUDED</p>
+              <div className="confirm-extras">
+                {booking.extras.map((item) => (
+                  <span key={item} className="confirm-extra-tag">
+                    <Sparkles size={12} />
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
 
-          <div className="price-total">
-            <span>Estimated total</span>
-            <strong>
-              ₹{state.totalPrice.toLocaleString("en-IN")}
-            </strong>
+          {/* Total */}
+          <div className="confirm-total">
+            <span>Total paid</span>
+            <strong>₹{booking.totalPrice.toLocaleString("en-IN")}</strong>
           </div>
 
-          <p className="price-note">
-            This is a demo booking summary. No reservation or
-            payment has been made.
+          <p className="price-note" style={{ textAlign: "center", marginTop: 10 }}>
+            A confirmation has been saved to our system. You'll hear from the hotel before check-in.
           </p>
 
           <button
             className="search-btn booking-btn"
             onClick={() => navigate("/")}
           >
-            Back to hotels
+            Explore more hotels
           </button>
+
         </div>
       </main>
     </>

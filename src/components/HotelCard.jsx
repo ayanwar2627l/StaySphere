@@ -6,7 +6,7 @@ export default function HotelCard({ hotel }) {
   const navigate = useNavigate();
 
   function openHotel() {
-    navigate(`/hotels/${hotel.id}`);
+    navigate(`/hotels/${hotel._id}`);
   }
 
   return (

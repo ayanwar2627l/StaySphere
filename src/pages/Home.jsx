@@ -1,9 +1,21 @@
+import { useState, useEffect } from "react";
 import { Search, MapPin, CalendarDays, Users } from "lucide-react";
 import Navbar from "../components/Navbar";
 import HotelCard from "../components/HotelCard";
-import hotels from "../data/hotels";
+import api from "../api";
 
 export default function Home() {
+  const [hotels, setHotels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .get("/hotels")
+      .then((response) => setHotels(response.data))
+      .catch(() => setError("Could not load hotels. Please try again."))
+      .finally(() => setLoading(false));
+  }, []);
   return (
     <>
       <Navbar />
@@ -77,9 +89,17 @@ export default function Home() {
           </div>
 
           <div className="hotel-grid">
-            {hotels.map((hotel) => (
-              <HotelCard key={hotel.id} hotel={hotel} />
-            ))}
+            {loading ? (
+              <p>Loading hotels...</p>
+            ) : error ? (
+              <p>{error}</p>
+            ) : hotels.length === 0 ? (
+              <p>No hotels available yet.</p>
+            ) : (
+              hotels.map((hotel) => (
+                <HotelCard key={hotel._id} hotel={hotel} />
+              ))
+            )}
           </div>
         </section>
 
