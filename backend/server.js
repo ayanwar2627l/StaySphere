@@ -11,7 +11,13 @@ const jwt = require("jsonwebtoken");
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,          // reflect any origin (dev-friendly)
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
 
 // Test route
