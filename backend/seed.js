@@ -1,6 +1,8 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 const Hotel = require("./models/Hotel");
+const User = require("./models/User");
 
 const hotels = [
   {
@@ -27,7 +29,7 @@ const hotels = [
     price: 3500,
     rating: 4.7,
     category: "Mountain Hotel",
-    image: "https://images.unsplash.com/photo-1518732714860-b62714ce0c59?auto=format&fit=crop&w=900&q=80",
+    image: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=900&q=80%20replacement%20a%20hotel%20imaage",
     packages: ["Breakfast", "Guided Trek"],
   },
   {
@@ -72,7 +74,7 @@ const hotels = [
     price: 4100,
     rating: 4.5,
     category: "Riverside Resort",
-    image: "https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=900&q=80",
+    image: "https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=900&q=80",
     packages: ["Breakfast", "Rafting Experience"],
   },
   {
@@ -90,16 +92,25 @@ const hotels = [
     price: 5600,
     rating: 4.7,
     category: "Desert Resort",
-    image: "https://images.unsplash.com/photo-1512316609839-ce289d3eba0a?auto=format&fit=crop&w=900&q=80",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRD_WaAC2hGMfENEtidH7Edyx43OtoGt7zA2qBBIAITAQ&s=10",
     packages: ["Breakfast", "Desert Safari"],
   },
 ];
 
-async function seedHotels() {
+const testUsers = [
+  {
+    name: "Aryan (Test User)",
+    email: "test@staysphere.com",
+    password: "test1234",
+  },
+];
+
+async function seedAll() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
+    console.log("Connected to MongoDB Atlas...");
 
-    // Update existing demo records or insert new ones.
+    // ── Seed Hotels ──────────────────────────────
     for (const hotel of hotels) {
       await Hotel.updateOne(
         { name: hotel.name },
@@ -107,13 +118,26 @@ async function seedHotels() {
         { upsert: true }
       );
     }
+    console.log(`✅ ${hotels.length} hotels seeded successfully!`);
 
-    console.log("Demo hotels seeded successfully!");
+    // ── Seed Test Users ───────────────────────────
+    for (const u of testUsers) {
+      const exists = await User.findOne({ email: u.email });
+      if (!exists) {
+        const hashed = await bcrypt.hash(u.password, 10);
+        await User.create({ name: u.name, email: u.email, password: hashed });
+        console.log(`✅ Test user created: ${u.email} (password: ${u.password})`);
+      } else {
+        console.log(`ℹ️  User already exists: ${u.email} — skipped`);
+      }
+    }
+
   } catch (error) {
-    console.error("Seeding failed:", error.message);
+    console.error("❌ Seeding failed:", error.message);
   } finally {
     await mongoose.disconnect();
+    console.log("Disconnected from MongoDB.");
   }
 }
 
-seedHotels();
+seedAll();

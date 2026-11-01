@@ -3,13 +3,20 @@ const mongoose = require("mongoose");
 const bookingSchema = new mongoose.Schema(
   {
     hotelId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Hotel",
+      type: String,
       required: true,
     },
     hotelName: {
       type: String,
       required: true,
+    },
+    userEmail: {
+      type: String,
+      default: "",
+    },
+    userName: {
+      type: String,
+      default: "",
     },
     room: {
       type: String,
@@ -35,6 +42,14 @@ const bookingSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    discount: {
+      type: Number,
+      default: 0,
+    },
+    couponCode: {
+      type: String,
+      default: "",
+    },
     totalPrice: {
       type: Number,
       required: true,
@@ -46,6 +61,11 @@ const bookingSchema = new mongoose.Schema(
     upiId: {
       type: String,
       default: "",
+    },
+    status: {
+      type: String,
+      enum: ["Confirmed", "Cancelled", "Completed"],
+      default: "Confirmed",
     },
   },
   { timestamps: true }
