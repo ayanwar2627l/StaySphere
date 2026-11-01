@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import AuthModal from "../components/AuthModal";
-import { getHotelById, getHotels } from "../api";
+import { getHotelById, getHotels, submitReview } from "../api";
 import { useWishlist } from "../context/WishlistContext";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
@@ -74,6 +74,64 @@ export default function HotelDetails() {
   // Photo modal state
   const [activePhotoModal, setActivePhotoModal] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  // Dynamic Review submission state
+  const [newRating, setNewRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [newComment, setNewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const STAR_LABELS = {
+    1: "Needs Improvement",
+    2: "Fair",
+    3: "Good Experience",
+    4: "Very Good Luxury Stay",
+    5: "Exceptional Sanctuary ★★★★★",
+  };
+
+  async function handleReviewSubmit(e) {
+    e?.preventDefault();
+    if (!newComment.trim()) return;
+
+    setReviewSubmitting(true);
+    try {
+      const updated = await submitReview(hotel._id || hotel.id, {
+        userName: user?.name || "Verified Guest",
+        userEmail: user?.email || "",
+        rating: newRating,
+        comment: newComment.trim(),
+      });
+
+      if (updated) {
+        setHotel(updated);
+      } else {
+        setHotel((prev) => {
+          const revs = [
+            {
+              author: user?.name || "Verified Guest",
+              userName: user?.name || "Verified Guest",
+              rating: newRating,
+              date: "Just now",
+              comment: newComment.trim(),
+            },
+            ...(prev.reviews || []),
+          ];
+          return {
+            ...prev,
+            reviews: revs,
+            reviewsCount: (prev.reviewsCount || 0) + 1,
+          };
+        });
+      }
+
+      setNewComment("");
+      showToast("Thank you! Your verified review has been published.", "success");
+    } catch {
+      showToast("Failed to publish review. Please try again.", "error");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -760,23 +818,101 @@ export default function HotelDetails() {
                     comment:
                       "One of the best stays we have ever booked in India. The concierge arranged our safari and sunset table with absolute perfection.",
                   },
-                ]).map((rev, i) => (
-                  <div key={i} className="review-card-item">
-                    <div className="review-author-row">
-                      <div className="review-avatar">{rev.author.charAt(0)}</div>
-                      <div>
-                        <strong>{rev.author}</strong>
-                        <span>{rev.date}</span>
+                ]).map((rev, i) => {
+                  const authorName = rev.userName || rev.author || "Verified Guest";
+                  const initialLetter = authorName.charAt(0).toUpperCase();
+
+                  return (
+                    <div key={i} className="review-card-item">
+                      <div className="review-author-row">
+                        <div className="review-avatar">{initialLetter}</div>
+                        <div>
+                          <strong>{authorName}</strong>
+                          <span>{rev.date || "Verified Stay"}</span>
+                        </div>
+                        <div className="review-stars-row">
+                          {[...Array(5)].map((_, idx) => (
+                            <Star
+                              key={idx}
+                              size={13}
+                              fill={idx < (rev.rating || 5) ? "#e5a93c" : "transparent"}
+                              color={idx < (rev.rating || 5) ? "#e5a93c" : "#b0b8b3"}
+                            />
+                          ))}
+                        </div>
                       </div>
-                      <div className="review-stars-row">
-                        {[...Array(5)].map((_, idx) => (
-                          <Star key={idx} size={13} fill="#e5a93c" color="#e5a93c" />
+                      <p className="review-text">“{rev.comment}”</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Dynamic Review Submission Form */}
+              <div className="add-review-section">
+                <h3>Share your verified stay review</h3>
+                <p className="add-review-sub">
+                  Your feedback helps fellow travelers discover true luxury sanctuaries.
+                </p>
+
+                {user ? (
+                  <form onSubmit={handleReviewSubmit} className="add-review-form">
+                    <div className="review-rating-picker">
+                      <span className="picker-label">Your Rating:</span>
+                      <div className="star-picker-row">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            className="star-pick-btn"
+                            onClick={() => setNewRating(star)}
+                            onMouseEnter={() => setHoverRating(star)}
+                            onMouseLeave={() => setHoverRating(0)}
+                            aria-label={`${star} star`}
+                          >
+                            <Star
+                              size={22}
+                              fill={(hoverRating || newRating) >= star ? "#e5a93c" : "transparent"}
+                              color={(hoverRating || newRating) >= star ? "#e5a93c" : "#b0b8b3"}
+                            />
+                          </button>
                         ))}
+                        <span className="star-rating-hint">
+                          {STAR_LABELS[hoverRating || newRating] || "Select rating"}
+                        </span>
                       </div>
                     </div>
-                    <p className="review-text">“{rev.comment}”</p>
+
+                    <div className="review-textarea-wrap">
+                      <textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder={`Share your stay highlights at ${hotel.name}...`}
+                        rows={3}
+                        required
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="search-btn submit-review-btn"
+                      disabled={reviewSubmitting || !newComment.trim()}
+                    >
+                      {reviewSubmitting ? "Publishing Review..." : "Publish Verified Review"}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="review-auth-prompt">
+                    <p>Sign in with your verified StaySphere account to share a guest review.</p>
+                    <button
+                      type="button"
+                      className="search-btn secondary"
+                      onClick={() => navigate("/login", { state: { returnTo: `/hotels/${id}` } })}
+                    >
+                      <UserRound size={15} />
+                      <span>Sign in to Review</span>
+                    </button>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 

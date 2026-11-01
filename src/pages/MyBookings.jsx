@@ -30,16 +30,14 @@ export default function MyBookings() {
   const [filter, setFilter] = useState("all"); // "all" | "confirmed" | "cancelled"
   const [cancellingId, setCancellingId] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [fetchingRemote, setFetchingRemote] = useState(false);
 
   useEffect(() => {
     // 1. Initial fast load from local cache
     const local = getLocalBookings();
     setBookings(local);
 
-    // 2. If user is signed in, load persistent bookings directly from MongoDB
+    // 2. If user is signed in, load persistent bookings directly from backend
     if (user?.email) {
-      setFetchingRemote(true);
       api
         .get(`/bookings?email=${encodeURIComponent(user.email.trim())}`)
         .then((res) => {
@@ -58,10 +56,7 @@ export default function MyBookings() {
           }
         })
         .catch((err) => {
-          console.warn("Could not fetch remote bookings from MongoDB:", err.message);
-        })
-        .finally(() => {
-          setFetchingRemote(false);
+          console.warn("Could not fetch remote bookings:", err.message);
         });
     }
   }, [user]);
@@ -167,13 +162,7 @@ export default function MyBookings() {
               <span className="traveler-email">({user.email})</span>
             </div>
           </div>
-          {fetchingRemote ? (
-            <span className="account-verified-tag" style={{ opacity: 0.85 }}>
-              Syncing Cloud...
-            </span>
-          ) : (
-            <span className="account-verified-tag">✓ MongoDB Synced</span>
-          )}
+          <span className="account-verified-tag">✓ Verified Member</span>
         </div>
 
         {/* Filter Tabs */}

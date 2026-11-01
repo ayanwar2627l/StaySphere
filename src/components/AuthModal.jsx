@@ -10,6 +10,7 @@ import {
   RefreshCw,
   KeyRound,
   ArrowLeft,
+  Sparkles,
 } from "lucide-react";
 import api, { registerVerifiedUser, verifyUserLogin, saveRegisteredUserLocally, getRegisteredUsers } from "../api";
 import { useAuth } from "../context/AuthContext";
@@ -85,7 +86,7 @@ export default function AuthModal({ onClose }) {
       try {
         const verifiedUser = verifyUserLogin(email, password);
         login(verifiedUser);
-        showToast(`Welcome back, ${verifiedUser.name}! (Verified)`, "success");
+        showToast(`Welcome back, ${verifiedUser.name}!`, "success");
         onClose();
       } catch (verifyErr) {
         setError(verifyErr.message);
@@ -367,27 +368,24 @@ export default function AuthModal({ onClose }) {
               </button>
             </form>
 
-            {/* Demo verified account quick credential hint */}
+            {/* Sample Member Access helper */}
             {tab === "login" && (
               <div className="demo-credentials-box">
                 <div className="demo-cred-header">
-                  <ShieldCheck size={14} />
-                  <span>Verified Test Account:</span>
+                  <Sparkles size={14} className="text-gold" />
+                  <span>Sample Member Access:</span>
                 </div>
-                <div className="demo-cred-row">
-                  <code>test@staysphere.com</code> · <code>test1234</code>
-                  <button
-                    type="button"
-                    className="auto-fill-btn"
-                    onClick={() => {
-                      setEmail("test@staysphere.com");
-                      setPassword("test1234");
-                      setError("");
-                    }}
-                  >
-                    Auto-fill
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="auto-fill-btn"
+                  onClick={() => {
+                    setEmail("test@staysphere.com");
+                    setPassword("test1234");
+                    setError("");
+                  }}
+                >
+                  Auto-fill demo account (test@staysphere.com)
+                </button>
               </div>
             )}
 

@@ -87,7 +87,7 @@ export default function Login() {
       try {
         const verifiedUser = verifyUserLogin(email, password);
         login(verifiedUser);
-        showToast(`Welcome back, ${verifiedUser.name}! (Verified)`, "success");
+        showToast(`Welcome back, ${verifiedUser.name}!`, "success");
 
         if (bookingData && returnTo) {
           navigate(returnTo, { state: bookingData, replace: true });
@@ -205,25 +205,19 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Quick Demo Credentials helper */}
+            {/* Sample Member Access helper */}
             <div className="demo-credentials-box">
               <div className="demo-cred-header">
-                <Sparkles size={14} />
-                <span>Test Credentials:</span>
-                <button
-                  type="button"
-                  className="auto-fill-btn"
-                  onClick={handleAutoFillTest}
-                >
-                  Auto-fill
-                </button>
+                <Sparkles size={14} className="text-gold" />
+                <span>Sample Member Access:</span>
               </div>
-              <div className="demo-cred-row">
-                <span>Email:</span>
-                <code>test@staysphere.com</code>
-                <span>· Pass:</span>
-                <code>test1234</code>
-              </div>
+              <button
+                type="button"
+                className="auto-fill-btn"
+                onClick={handleAutoFillTest}
+              >
+                Auto-fill demo account (test@staysphere.com)
+              </button>
             </div>
 
             <button

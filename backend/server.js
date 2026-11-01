@@ -14,11 +14,19 @@ const User = require("./models/User");
 
 const app = express();
 
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map((s) => s.trim())
+  : [];
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow local development ports and requests with no origin (e.g. mobile apps, curl)
-      if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+      // Allow local development ports, configured CLIENT_URL, and requests with no origin (e.g. mobile apps, curl)
+      if (
+        !origin ||
+        /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+        allowedOrigins.includes(origin)
+      ) {
         return callback(null, true);
       }
       callback(new Error("Not allowed by CORS"));
@@ -42,27 +50,88 @@ app.get("/", (req, res) => {
   res.send("StaySphere API is running!");
 });
 
-// Get all hotels
+// ── Dynamic Hotel Endpoints ───────────────────────────────────────────────
+
+// Dynamic Get all hotels (Search, Filter, Sort, Price Bounds)
 app.get("/api/hotels", async (req, res) => {
   try {
-    const hotels = await Hotel.find();
+    const { search, category, location, minPrice, maxPrice, rating, sort } = req.query;
+
+    const query = {};
+
+    // Keyword search across hotel name, location, description, highlights, tags
+    if (search && search.trim()) {
+      const regex = new RegExp(search.trim(), "i");
+      query.$or = [
+        { name: regex },
+        { location: regex },
+        { city: regex },
+        { state: regex },
+        { tagline: regex },
+        { description: regex },
+        { category: regex },
+      ];
+    }
+
+    // Category filter
+    if (category && category.trim() && category !== "all") {
+      query.category = { $regex: new RegExp(`^${category.trim()}$`, "i") };
+    }
+
+    // Location / City filter
+    if (location && location.trim() && location !== "All India") {
+      query.$or = [
+        { location: new RegExp(location.trim(), "i") },
+        { city: new RegExp(location.trim(), "i") },
+        { state: new RegExp(location.trim(), "i") },
+      ];
+    }
+
+    // Price range filter
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+
+    // Rating filter
+    if (rating) {
+      query.rating = { $gte: Number(rating) };
+    }
+
+    // Sorting logic
+    let sortOptions = { createdAt: -1 };
+    if (sort === "price_asc") sortOptions = { price: 1 };
+    else if (sort === "price_desc") sortOptions = { price: -1 };
+    else if (sort === "rating") sortOptions = { rating: -1 };
+    else if (sort === "popular") sortOptions = { reviewsCount: -1 };
+
+    const hotels = await Hotel.find(query).sort(sortOptions);
     res.status(200).json(hotels);
   } catch (error) {
     console.error("Failed to fetch hotels:", error.message);
-    res.status(500).json({
-      message: "Failed to fetch hotels",
-    });
+    res.status(500).json({ message: "Failed to fetch hotels" });
   }
 });
 
-// Get one hotel by ID
+// Dynamic Get one hotel by ID, customId, or Name
 app.get("/api/hotels/:id", async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ message: "Invalid hotel ID" });
+    const { id } = req.params;
+    let hotel = null;
+
+    if (mongoose.isValidObjectId(id)) {
+      hotel = await Hotel.findById(id);
     }
 
-    const hotel = await Hotel.findById(req.params.id);
+    if (!hotel) {
+      hotel = await Hotel.findOne({
+        $or: [
+          { customId: id },
+          { name: new RegExp(id.replace(/-/g, " "), "i") },
+        ],
+      });
+    }
 
     if (!hotel) {
       return res.status(404).json({ message: "Hotel not found" });
@@ -72,6 +141,101 @@ app.get("/api/hotels/:id", async (req, res) => {
   } catch (error) {
     console.error("Failed to fetch hotel:", error.message);
     res.status(500).json({ message: "Failed to fetch hotel" });
+  }
+});
+
+// Dynamic Review Submission for a hotel
+app.post("/api/hotels/:id/reviews", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userName, userEmail, rating, comment } = req.body;
+
+    if (!userName || !rating || !comment) {
+      return res.status(400).json({ message: "Name, rating, and review comment are required." });
+    }
+
+    let hotel = null;
+    if (mongoose.isValidObjectId(id)) {
+      hotel = await Hotel.findById(id);
+    }
+    if (!hotel) {
+      hotel = await Hotel.findOne({
+        $or: [{ customId: id }, { name: new RegExp(id.replace(/-/g, " "), "i") }],
+      });
+    }
+
+    if (!hotel) {
+      return res.status(404).json({ message: "Hotel not found" });
+    }
+
+    const newReview = {
+      userName: userName.trim(),
+      userEmail: (userEmail || "").trim().toLowerCase(),
+      rating: Number(rating),
+      comment: comment.trim(),
+      date: new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }),
+    };
+
+    if (!hotel.reviews) hotel.reviews = [];
+    hotel.reviews.unshift(newReview);
+
+    // Recalculate average rating & reviewsCount dynamically
+    const totalScore = hotel.reviews.reduce((sum, r) => sum + r.rating, 0);
+    hotel.rating = Number((totalScore / hotel.reviews.length).toFixed(2));
+    hotel.reviewsCount = hotel.reviews.length;
+
+    await hotel.save();
+
+    console.log(`⭐ Dynamic review recorded for ${hotel.name} by ${newReview.userName} (${newReview.rating}★)`);
+    res.status(201).json({ hotel, review: newReview });
+  } catch (error) {
+    console.error("Failed to add review:", error.message);
+    res.status(500).json({ message: "Failed to add review" });
+  }
+});
+
+// ── Dynamic Wishlist Endpoints ─────────────────────────────────────────────
+
+// Get user wishlist
+app.get("/api/users/wishlist", async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ message: "User email required." });
+    }
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    res.json(user ? user.wishlist || [] : []);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch wishlist" });
+  }
+});
+
+// Toggle user wishlist item
+app.post("/api/users/wishlist", async (req, res) => {
+  try {
+    const { email, hotelId, action } = req.body;
+    if (!email || !hotelId) {
+      return res.status(400).json({ message: "Email and hotelId required." });
+    }
+    const normalizedEmail = email.toLowerCase().trim();
+    let user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    if (action === "remove") {
+      user.wishlist = (user.wishlist || []).filter((id) => String(id) !== String(hotelId));
+    } else {
+      if (!user.wishlist) user.wishlist = [];
+      if (!user.wishlist.includes(String(hotelId))) {
+        user.wishlist.push(String(hotelId));
+      }
+    }
+
+    await user.save();
+    res.json({ wishlist: user.wishlist });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update wishlist" });
   }
 });
 

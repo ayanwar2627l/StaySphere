@@ -2,7 +2,7 @@ import axios from "axios";
 import fallbackHotels from "./data/hotels";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
   timeout: 3500, // Quick timeout so UI doesn't hang if backend is down
 });
 
@@ -54,17 +54,50 @@ function mergeHotelDetails(hotel) {
   };
 }
 
-// Fetch all hotels with fallback
-export async function getHotels() {
+// Fetch all hotels with dynamic search, filter, and sort
+export async function getHotels(params = {}) {
   try {
-    const res = await api.get("/hotels");
+    const res = await api.get("/hotels", { params });
     if (Array.isArray(res.data) && res.data.length > 0) {
       return res.data.map(mergeHotelDetails);
     }
   } catch (err) {
-    console.warn("Backend /hotels unavailable, using rich local hotels dataset:", err.message);
+    console.warn("Backend /hotels query failed, applying dynamic filter on local dataset:", err.message);
   }
-  return fallbackHotels;
+
+  // Dynamic client-side fallback filtering & sorting if backend query fails
+  let list = fallbackHotels;
+  if (params.category && params.category !== "all") {
+    list = list.filter((h) => h.category?.toLowerCase() === params.category.toLowerCase());
+  }
+  if (params.location && params.location !== "All India") {
+    const loc = params.location.toLowerCase();
+    list = list.filter((h) =>
+      h.location?.toLowerCase().includes(loc) ||
+      h.city?.toLowerCase().includes(loc) ||
+      h.state?.toLowerCase().includes(loc)
+    );
+  }
+  if (params.search && params.search.trim()) {
+    const q = params.search.trim().toLowerCase();
+    list = list.filter((h) =>
+      h.name.toLowerCase().includes(q) ||
+      h.location.toLowerCase().includes(q) ||
+      h.city?.toLowerCase().includes(q) ||
+      h.description?.toLowerCase().includes(q) ||
+      h.category?.toLowerCase().includes(q)
+    );
+  }
+  if (params.minPrice) list = list.filter((h) => h.price >= Number(params.minPrice));
+  if (params.maxPrice) list = list.filter((h) => h.price <= Number(params.maxPrice));
+  if (params.rating) list = list.filter((h) => h.rating >= Number(params.rating));
+
+  if (params.sort === "price_asc") list = [...list].sort((a, b) => a.price - b.price);
+  else if (params.sort === "price_desc") list = [...list].sort((a, b) => b.price - a.price);
+  else if (params.sort === "rating") list = [...list].sort((a, b) => b.rating - a.rating);
+  else if (params.sort === "popular") list = [...list].sort((a, b) => (b.reviewsCount || 0) - (a.reviewsCount || 0));
+
+  return list;
 }
 
 // Fetch single hotel by ID with fallback
@@ -82,6 +115,55 @@ export async function getHotelById(id) {
     (h) => String(h._id) === String(id) || String(h.id) === String(id)
   );
   return found || fallbackHotels[0];
+}
+
+// Submit a dynamic review for a hotel
+export async function submitReview(hotelId, reviewData) {
+  try {
+    const res = await api.post(`/hotels/${hotelId}/reviews`, reviewData);
+    if (res.data?.hotel) {
+      return mergeHotelDetails(res.data.hotel);
+    }
+  } catch (err) {
+    console.warn("Backend /reviews post failed, adding review dynamically to local memory:", err.message);
+  }
+
+  // Local fallback: append to mock review list
+  const fallbackHotel = fallbackHotels.find(
+    (h) => String(h._id) === String(hotelId) || String(h.id) === String(hotelId)
+  );
+  if (fallbackHotel) {
+    if (!fallbackHotel.reviews) fallbackHotel.reviews = [];
+    fallbackHotel.reviews.unshift({
+      userName: reviewData.userName,
+      rating: reviewData.rating,
+      comment: reviewData.comment,
+      date: new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }),
+    });
+    fallbackHotel.reviewsCount = (fallbackHotel.reviewsCount || 0) + 1;
+    return { ...fallbackHotel };
+  }
+  return null;
+}
+
+// Dynamic Wishlist Sync
+export async function getUserWishlist(email) {
+  if (!email) return [];
+  try {
+    const res = await api.get(`/users/wishlist?email=${encodeURIComponent(email)}`);
+    return Array.isArray(res.data) ? res.data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function syncWishlistItem(email, hotelId, action) {
+  if (!email || !hotelId) return;
+  try {
+    await api.post("/users/wishlist", { email, hotelId, action });
+  } catch {
+    // Fail silently in background
+  }
 }
 
 // Booking storage helpers

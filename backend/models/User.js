@@ -20,6 +20,14 @@ const userSchema = new mongoose.Schema(
       required: true,
       minlength: 6,
     },
+    wishlist: {
+      type: [String],
+      default: [],
+    },
+    phone: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );
