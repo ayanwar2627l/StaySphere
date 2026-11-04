@@ -1,5 +1,4 @@
 // Rich curated dataset of StaySphere luxury hotels & resorts across India
-// Used for fallback, offline resilience, and rich property details
 
 const hotels = [
   {
